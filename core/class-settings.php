@@ -1,8 +1,20 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+function adf_sanitize_options($input) {
+    if (!is_array($input)) { $input = []; }
+    return [
+        'enable_dev_tags' => !empty($input['enable_dev_tags']) ? 1 : 0,
+        'hide_author' => !empty($input['hide_author']) ? 1 : 0,
+    ];
+}
+
 function adf_register_settings() {
-    register_setting('atomic_design_tools_group','atomic_design_tools_settings');
+    register_setting('atomic_design_tools_group','atomic_design_tools_settings',[
+        'type'=>'array',
+        'sanitize_callback'=>'adf_sanitize_options',
+        'default'=>[],
+    ]);
 }
 add_action('admin_init','adf_register_settings');
 
@@ -17,8 +29,8 @@ function adf_settings_html() {
     <form method="post" action="options.php">
         <?php settings_fields('atomic_design_tools_group'); ?>
         <table class="form-table">
-            <tr><th>Enable Dev Tags</th><td><input type="checkbox" name="atomic_design_tools_settings[enable_dev_tags]" value="1" <?php checked(1, @$options['enable_dev_tags']); ?>></td></tr>
-            <tr><th>Hide Author Column</th><td><input type="checkbox" name="atomic_design_tools_settings[hide_author]" value="1" <?php checked(1, @$options['hide_author']); ?>></td></tr>
+            <tr><th>Enable Dev Tags</th><td><input type="checkbox" name="atomic_design_tools_settings[enable_dev_tags]" value="1" <?php checked(1, isset($options['enable_dev_tags']) ? $options['enable_dev_tags'] : 0); ?>></td></tr>
+            <tr><th>Hide Author Column</th><td><input type="checkbox" name="atomic_design_tools_settings[hide_author]" value="1" <?php checked(1, isset($options['hide_author']) ? $options['hide_author'] : 0); ?>></td></tr>
         </table>
         <?php submit_button(); ?>
     </form></div>
