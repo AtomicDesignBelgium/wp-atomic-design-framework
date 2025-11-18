@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name: WP Atomic Design Framework
- * Plugin URI: https://github.com/YOUR_USERNAME/wp-atomic-design-framework
+ * Plugin URI: https://github.com/AtomicDesignBelgium/wp-atomic-design-framework.git
  * Description: Modular framework plugin for Atomic Design tools.
- * Author: Bernard Coubeaux / Atomic Design
+ * Author: Bernard Coubeaux / Atomic Design Belgium SRL
  * Version: 1.0.0
  * Requires at least: 5.8
  * Requires PHP: 7.4
- * Update URI: https://raw.githubusercontent.com/YOUR_USERNAME/wp-atomic-design-framework/main/update.json
+ * Update URI: https://raw.githubusercontent.com/AtomicDesignBelgium/wp-atomic-design-framework/main/update.json
  */
 
 if (!defined('ABSPATH')) exit;
@@ -17,6 +17,7 @@ define('ADF_URL', plugin_dir_url(__FILE__));
 
 require_once ADF_PATH . 'includes/helpers.php';
 require_once ADF_PATH . 'core/class-settings.php';
+require_once ADF_PATH . 'core/class-updater.php';
 
 $options = adf_get_options();
 
