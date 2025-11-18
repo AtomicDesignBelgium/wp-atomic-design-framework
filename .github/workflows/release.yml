@@ -1,0 +1,25 @@
+name: Build & Release Plugin
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Zip Plugin
+        run: |
+          mkdir build
+          zip -r build/wp-atomic-design-framework.zip . -x "*.git*" -x "*.github*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/wp-atomic-design-framework.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

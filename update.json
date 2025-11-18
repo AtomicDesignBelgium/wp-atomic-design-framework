@@ -1,0 +1,14 @@
+{
+  "name": "WP Atomic Design Framework",
+  "slug": "wp-atomic-design-framework",
+  "version": "1.0.0",
+  "author": "Atomic Design",
+  "download_url": "https://github.com/YOUR_USERNAME/wp-atomic-design-framework/archive/refs/heads/main.zip",
+  "requires": "5.8",
+  "requires_php": "7.4",
+  "tested": "6.7",
+  "sections": {
+    "description": "Auto-updating version of the WP Atomic Design Framework plugin.",
+    "changelog": "Initial release."
+  }
+}
