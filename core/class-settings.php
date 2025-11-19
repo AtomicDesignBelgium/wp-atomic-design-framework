@@ -34,4 +34,16 @@ function adf_settings_html() {
         </table>
         <?php submit_button(); ?>
     </form></div>
+    <div class="wrap" style="margin-top:10px;">
+        <a class="button" href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=adf_force_update'),'adf_force_update'); ?>">Check for Updates</a>
+    </div>
 <?php }
+
+function adf_force_update() {
+    if (!current_user_can('manage_options')) return;
+    if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'],'adf_force_update')) return;
+    delete_site_transient('update_plugins');
+    wp_safe_redirect(admin_url('update-core.php?force-check=1'));
+    exit;
+}
+add_action('admin_post_adf_force_update','adf_force_update');
