@@ -18,10 +18,16 @@ function adf_chartjs_once() {
 
 function adf_dev_status_stats() {
     $opt = adf_get_options();
-    $counts = wp_count_posts('page');
+    $c = wp_count_posts('page');
+    $counts = [
+        'publish' => isset($c->publish) ? intval($c->publish) : 0,
+        'pending' => isset($c->pending) ? intval($c->pending) : 0,
+        'draft'   => isset($c->draft) ? intval($c->draft) : 0,
+        'future'  => isset($c->future) ? intval($c->future) : 0,
+        'private' => isset($c->private) ? intval($c->private) : 0,
+    ];
     $total = 0;
-    foreach (['publish','pending','draft','future','private'] as $st) { $total += isset($counts->$st) ? intval($counts->$st) : 0; }
-    // Always compute stats; UI can be disabled while taxonomy remains registered
+    foreach (['publish','pending','draft','future','private'] as $st) { $total += intval($counts[$st]); }
     $base = [
         'post_type'=>'page',
         'post_status'=>['publish','pending','draft','future','private'],

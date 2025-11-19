@@ -19,10 +19,33 @@ function adf_register_settings() {
 add_action('admin_init','adf_register_settings');
 
 function adf_add_menu() {
-    add_options_page('WP Atomic Design','WP Atomic Design','manage_options','wp-atomic-design','adf_settings_html');
-    add_options_page('Atomic Design Dashboard','Atomic Design Dashboard','manage_options','wp-atomic-design-dashboard','adf_dashboard_html');
+    add_options_page('WP Atomic Design','WP Atomic Design','manage_options','wp-atomic-design','adf_tools_html');
 }
 add_action('admin_menu','adf_add_menu');
+
+function adf_redirect_old_dashboard_page() {
+    if (!is_admin()) return;
+    if (!isset($_GET['page'])) return;
+    if (sanitize_text_field($_GET['page']) !== 'wp-atomic-design-dashboard') return;
+    if (!current_user_can('manage_options')) return;
+    wp_safe_redirect(admin_url('options-general.php?page=wp-atomic-design&tab=dashboard'));
+    exit;
+}
+add_action('admin_init','adf_redirect_old_dashboard_page');
+
+function adf_tools_html() {
+    $tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'dashboard';
+    $is_dash = ($tab === 'settings') ? false : true;
+    $dash_url = admin_url('options-general.php?page=wp-atomic-design&tab=dashboard');
+    $set_url = admin_url('options-general.php?page=wp-atomic-design&tab=settings');
+    echo '<div class="wrap"><h1>WP Atomic Design Framework</h1>';
+    echo '<h2 class="nav-tab-wrapper">';
+    echo '<a href="'.esc_url($dash_url).'" class="nav-tab'.($is_dash?' nav-tab-active':'').'">Dashboard</a>';
+    echo '<a href="'.esc_url($set_url).'" class="nav-tab'.(!$is_dash?' nav-tab-active':'').'">Settings</a>';
+    echo '</h2>';
+    if ($is_dash) { adf_dashboard_html(); } else { adf_settings_html(); }
+    echo '</div>';
+}
 
 function adf_settings_html() {
     $options = adf_get_options(); ?>

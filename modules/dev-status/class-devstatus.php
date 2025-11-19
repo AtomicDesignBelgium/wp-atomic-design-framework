@@ -12,10 +12,15 @@ class ADF_DevStatus {
             add_action('save_post', [$this,'save_box']);
             add_action('restrict_manage_posts', [$this,'add_list_filter']);
             add_action('pre_get_posts', [$this,'apply_list_filter']);
-            add_filter('bulk_actions-edit-page', [$this,'register_bulk_actions']);
-            add_filter('handle_bulk_actions-edit-page', [$this,'handle_bulk_action'], 10, 3);
+            foreach ($this->tracked_types() as $pt) {
+                add_filter('bulk_actions-edit-' . $pt, [$this,'register_bulk_actions']);
+                add_filter('handle_bulk_actions-edit-' . $pt, [$this,'handle_bulk_action'], 10, 3);
+            }
             add_action('admin_notices', [$this,'bulk_action_notice']);
         }
+    }
+    function tracked_types() {
+        return ['page'];
     }
     function lang() {
         $l = get_locale();
@@ -39,7 +44,7 @@ class ADF_DevStatus {
         return $this->lang() === 'fr' ? 'Statut de dev' : 'Dev Status';
     }
     function register() {
-        register_taxonomy('dev_status',['page'],[
+        register_taxonomy('dev_status',$this->tracked_types(),[
             'public'=>false,
             'show_ui'=>false,
             'hierarchical'=>false,
@@ -75,7 +80,9 @@ class ADF_DevStatus {
         }
     }
     function add_box() {
-        add_meta_box('adf_dev_status',$this->ui_title(),[$this,'box_html'],'page','side');
+        foreach ($this->tracked_types() as $pt) {
+            add_meta_box('adf_dev_status',$this->ui_title(),[$this,'box_html'],$pt,'side');
+        }
     }
     function box_html($post) {
         wp_nonce_field('adf_dev_status','adf_dev_status_nonce');
@@ -95,17 +102,24 @@ class ADF_DevStatus {
         if (!wp_verify_nonce($_POST['adf_dev_status_nonce'],'adf_dev_status')) return;
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
         $post = get_post($post_id);
-        if (!$post || $post->post_type !== 'page') return;
+        $types = $this->tracked_types();
+        if (!$post || !in_array($post->post_type,$types, true)) return;
         if (!current_user_can('edit_post',$post_id)) return;
-        $term_id = isset($_POST['adf_dev_status']) ? intval($_POST['adf_dev_status']) : 0;
+        $term_id = isset($_POST['adf_dev_status']) ? intval($_POST['adf_dev_status']) : -1;
         if ($term_id > 0) {
             wp_set_object_terms($post_id, [$term_id], 'dev_status', false);
         } else {
-            wp_set_object_terms($post_id, [], 'dev_status', false);
+            $current = wp_get_object_terms($post_id,'dev_status',['fields'=>'ids']);
+            if (empty($current)) {
+                $t = get_term_by('slug','empty','dev_status');
+                wp_set_object_terms($post_id, $t ? [$t->term_id] : [], 'dev_status', false);
+            } else {
+                if ($term_id === 0) { wp_set_object_terms($post_id, [], 'dev_status', false); }
+            }
         }
     }
     function add_list_filter($post_type) {
-        if ($post_type !== 'page') return;
+        if (!in_array($post_type,$this->tracked_types(), true)) return;
         $selected = isset($_GET['adf_dev_status_filter']) ? sanitize_text_field($_GET['adf_dev_status_filter']) : '';
         $terms = get_terms(['taxonomy'=>'dev_status','hide_empty'=>false]);
         echo '<select name="adf_dev_status_filter" class="postform">';
@@ -120,7 +134,7 @@ class ADF_DevStatus {
         if (!is_admin() || !$query->is_main_query()) return;
         $screen = function_exists('get_current_screen') ? get_current_screen() : null;
         $post_type = isset($_GET['post_type']) ? sanitize_text_field($_GET['post_type']) : ($screen ? $screen->post_type : '');
-        if ($post_type !== 'page') return;
+        if (!in_array($post_type,$this->tracked_types(), true)) return;
         $slug = isset($_GET['adf_dev_status_filter']) ? sanitize_text_field($_GET['adf_dev_status_filter']) : '';
         if ($slug) {
             $query->set('tax_query', [
