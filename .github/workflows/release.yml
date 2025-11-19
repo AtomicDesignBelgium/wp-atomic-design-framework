@@ -1,25 +1,63 @@
-name: Build & Release Plugin
+name: Release
 
 on:
   push:
     tags:
-      - "v*.*.*"
+      - 'v*.*.*'
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Zip Plugin
+      - name: Prepare archive
         run: |
-          mkdir build
-          zip -r build/wp-atomic-design-framework.zip . -x "*.git*" -x "*.github*"
+          set -e
+          PLUGIN_SLUG=wp-atomic-design-framework
+          ZIP_NAME="$PLUGIN_SLUG.zip"
+          # Stage into a folder named exactly like the plugin slug
+          mkdir -p package/$PLUGIN_SLUG
+          rsync -a --delete . package/$PLUGIN_SLUG \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude "node_modules" \
+            --exclude "vendor" \
+            --exclude "build" \
+            --exclude "dist"
+          # Create zip from the staged folder so WP installs to the correct directory
+          (cd package && zip -r "../$ZIP_NAME" "$PLUGIN_SLUG")
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          echo "PLUGIN_SLUG=$PLUGIN_SLUG" >> $GITHUB_ENV
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Publish GitHub Release with asset
+        uses: softprops/action-gh-release@v2
         with:
-          files: build/wp-atomic-design-framework.zip
+          files: ${{ env.ZIP_NAME }}
+          draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update update.json on main
+        run: |
+          set -e
+          TAG="${GITHUB_REF##*/}"
+          REPO="${GITHUB_REPOSITORY}"
+          # Always point to stable 'latest' asset URL
+          DL_URL="https://github.com/$REPO/releases/latest/download/${{ env.ZIP_NAME }}"
+          # Update only the version and keep stable download_url
+          jq \
+            --arg ver "$TAG" \
+            --arg url "$DL_URL" \
+            '.version = ($ver | sub("^v"; "")) | .download_url = $url' update.json \
+            > update.json.tmp
+          mv update.json.tmp update.json
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git checkout main
+          git add update.json
+          git commit -m "chore: update update.json for $TAG"
+          git push origin main

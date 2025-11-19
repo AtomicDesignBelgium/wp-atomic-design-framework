@@ -3,7 +3,7 @@
   "slug": "wp-atomic-design-framework",
   "version": "1.0.2",
   "author": "Atomic Design",
-  "download_url": "https://github.com/AtomicDesignBelgium/wp-atomic-design-framework/archive/refs/tags/v1.0.2.zip",
+  "download_url": "https://github.com/AtomicDesignBelgium/wp-atomic-design-framework/releases/latest/download/wp-atomic-design-framework.zip",
   "requires": "5.8",
   "requires_php": "7.4",
   "tested": "6.7",
