@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/AtomicDesignBelgium/wp-atomic-design-framework.git
  * Description: Modular framework plugin for Atomic Design tools.
  * Author: Bernard Coubeaux / Atomic Design Belgium SRL
- * Version: 1.0.4
+ * Version: 1.0.5
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Update URI: https://raw.githubusercontent.com/AtomicDesignBelgium/wp-atomic-design-framework/main/update.json
@@ -22,7 +22,10 @@ require_once ADF_PATH . 'core/class-updater.php';
 $options = adf_get_options();
 
 require_once ADF_PATH . 'modules/dev-status/class-devstatus.php';
+require_once ADF_PATH . 'modules/internal-notes/class-internal-notes.php';
 
 if (!empty($options['hide_author'])) {
     require_once ADF_PATH . 'modules/author-column/class-author.php';
 }
+
+register_activation_hook(__FILE__, ['ADF\\ADF_InternalNotes','install']);
