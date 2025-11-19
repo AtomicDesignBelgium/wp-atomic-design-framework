@@ -59,7 +59,7 @@ class ADF_InternalNotes {
         add_action('wp_ajax_adf_add_comment', [$this,'ajax_add_comment']);
         add_action('wp_ajax_adf_update_note', [$this,'ajax_update_note']);
         add_action('wp_ajax_adf_upload_note_file', [$this,'ajax_upload_file']);
-        add_action('admin_post_adf_download_note_file', [$this,'download_file']);
+        add_action('admin_post_adf_download_note_file', [$this,'download_file']);up        add_action('admin_post_adf_download_note_root_file', [$this,'download_note_root_file']);
         add_action('wp_dashboard_setup', [$this,'register_dash_widgets']);
     }
 
@@ -99,7 +99,8 @@ class ADF_InternalNotes {
             $is_admin = current_user_can('manage_options');
             
             echo '<div id="adfNewNoteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9999;align-items:center;justify-content:center">';
-            echo '<div class="adf-notes-create" style="margin:16px 0;padding:12px;border:1px solid #ddd;border-radius:6px;background:#fff">';
+            echo '<div class="adf-notes-create" style="position:relative;margin:16px 0;padding:12px 36px 12px 12px;border:1px solid #ddd;border-radius:6px;background:#fff">';
+            echo '<button type="button" id="adfModalClose" class="button" style="position:absolute;top:8px;right:8px">✖</button>';
             echo '<h2 style="margin:0 0 12px;font-size:16px">Create a note</h2>';
             echo '<label>Related page: ';
             echo wp_dropdown_pages(['echo'=>0,'name'=>'adfNotePostId','id'=>'adfNotePostId','show_option_none'=>'Global (no page)','option_none_value'=>'0']);
@@ -127,7 +128,7 @@ class ADF_InternalNotes {
             btn.addEventListener('click',function(){var files=sel;if(files&&files.length){uploadFiles(files,function(names){createNote(names);});}else{createNote([]);} });})();</script>";
             echo '</div>';
             echo '</div>';
-            echo '<script>(function(){var open=document.getElementById("adfOpenNewNote");var modal=document.getElementById("adfNewNoteModal");if(modal&&modal.parentNode!==document.body){document.body.appendChild(modal);}function show(){if(modal){modal.style.display="flex";}}function hide(){if(modal){modal.style.display="none";}}if(open){open.addEventListener("click",show);}if(modal){modal.addEventListener("click",function(ev){if(ev.target===modal){hide();}});document.addEventListener("keydown",function(e){if(e.key==="Escape"){hide();}});}})();</script>';
+            echo '<script>(function(){var open=document.getElementById("adfOpenNewNote");var modal=document.getElementById("adfNewNoteModal");var closeBtn=document.getElementById("adfModalClose");if(modal&&modal.parentNode!==document.body){document.body.appendChild(modal);}function show(){if(modal){modal.style.display="flex";}}function hide(){if(modal){modal.style.display="none";}}if(open){open.addEventListener("click",show);}if(closeBtn){closeBtn.addEventListener("click",hide);}document.addEventListener("keydown",function(e){if(e.key==="Escape"){hide();}});})();</script>';
         }
         $fp = isset($_GET['adf_fp']) ? sanitize_text_field($_GET['adf_fp']) : 'all';
         $prf = isset($_GET['adf_pr']) ? sanitize_text_field($_GET['adf_pr']) : 'all';
@@ -255,6 +256,21 @@ class ADF_InternalNotes {
                 echo '</div>';
                 echo '<div style="border-bottom:1px solid #eaeaea;margin:8px -12px 8px -12px"></div>';
                 echo '<div class="adf-thread-body" style="margin-top:8px">'.wp_kses_post($n['content']).'</div>';
+                $n_media = [];
+                if (!empty($n['media'])) { $nm = json_decode($n['media'], true); if (is_array($nm)) { $n_media = $nm; } }
+                if (is_array($n_media) && count($n_media)) {
+                    echo '<div class="adf-thread-attachments" style="margin-top:10px;color:#555">Pièces jointes: ';
+                    $nlinks = [];
+                    foreach ($n_media as $fname) {
+                        $url = wp_nonce_url(admin_url('admin-post.php?action=adf_download_note_root_file&note_id=' . intval($n['id']) . '&file=' . rawurlencode($fname)), 'adf_notes');
+                        $ext = strtolower(pathinfo($fname, PATHINFO_EXTENSION));
+                        $icon = ($ext==='pdf'?'📄':(($ext==='doc'||$ext==='docx')?'📝':(($ext==='xls'||$ext==='xlsx')?'📊':(($ext==='jpg'||$ext==='jpeg'||$ext==='png'||$ext==='gif'||$ext==='webp')?'🖼️':'📎'))));
+                        $disp = $fname; if (strlen($disp) > 32) { $disp = substr($disp,0,18) . '…' . substr($disp,-10); }
+                        $nlinks[] = $icon . ' <a href="'.esc_url($url).'" target="_blank">'.esc_html($disp).'</a>';
+                    }
+                    echo implode(' · ', $nlinks);
+                    echo '</div>';
+                }
                 echo '<div class="adf-thread-comments" style="margin-top:12px">';
                 if (!empty($comments)) {
                     echo '<ul style="margin:0;padding-left:0;list-style:none">';
@@ -500,6 +516,33 @@ class ADF_InternalNotes {
         $upload = wp_upload_dir();
         $dir = trailingslashit($upload['basedir']) . 'adf-notes';
         $ref = $nrow && !empty($nrow['ref']) ? $nrow['ref'] : '';
+        $path = $dir . '/' . ( $ref ? ($ref . '/') : '' ) . $file;
+        if (!file_exists($path)) wp_die('');
+        $ft = wp_check_filetype($file);
+        $mime = $ft && !empty($ft['type']) ? $ft['type'] : 'application/octet-stream';
+        header('Content-Type: '.$mime);
+        header('Content-Length: '.filesize($path));
+        header('Content-Disposition: attachment; filename="'.$file.'"');
+        readfile($path);
+        exit;
+    }
+
+    function download_note_root_file() {
+        if (!current_user_can('edit_pages')) wp_die('');
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'],'adf_notes')) wp_die('');
+        $note_id = isset($_GET['note_id']) ? intval($_GET['note_id']) : 0;
+        $file = isset($_GET['file']) ? sanitize_file_name($_GET['file']) : '';
+        if (!$note_id || !$file) wp_die('');
+        global $wpdb;
+        $ntable = $wpdb->prefix . 'adf_notes';
+        $row = $wpdb->get_row($wpdb->prepare("SELECT media, ref FROM {$ntable} WHERE id=%d", $note_id), ARRAY_A);
+        if (!$row) wp_die('');
+        $media = [];
+        if (!empty($row['media'])) { $m = json_decode($row['media'], true); if (is_array($m)) { $media = $m; } }
+        if (!in_array($file, $media, true)) wp_die('');
+        $upload = wp_upload_dir();
+        $dir = trailingslashit($upload['basedir']) . 'adf-notes';
+        $ref = !empty($row['ref']) ? $row['ref'] : '';
         $path = $dir . '/' . ( $ref ? ($ref . '/') : '' ) . $file;
         if (!file_exists($path)) wp_die('');
         $ft = wp_check_filetype($file);
