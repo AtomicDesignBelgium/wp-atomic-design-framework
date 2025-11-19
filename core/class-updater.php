@@ -1,4 +1,5 @@
 <?php
+namespace ADF;
 if (!defined('ABSPATH')) exit;
 
 class ADF_Updater {
