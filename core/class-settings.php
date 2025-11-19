@@ -20,6 +20,7 @@ add_action('admin_init','adf_register_settings');
 
 function adf_add_menu() {
     add_options_page('WP Atomic Design','WP Atomic Design','manage_options','wp-atomic-design','adf_settings_html');
+    add_options_page('Atomic Design Dashboard','Atomic Design Dashboard','manage_options','wp-atomic-design-dashboard','adf_dashboard_html');
 }
 add_action('admin_menu','adf_add_menu');
 
@@ -47,3 +48,100 @@ function adf_force_update() {
     exit;
 }
 add_action('admin_post_adf_force_update','adf_force_update');
+
+function adf_dashboard_html() {
+    echo '<div class="wrap"><h1>Atomic Design Dashboard</h1>';
+    echo '<style>.adf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.adf-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}.adf-card h3{margin:0 0 12px;font-size:16px}.adf-chartwrap{position:relative;width:100%;height:240px}.adf-chartwrap.adf-h-200{height:200px}.adf-chartwrap.adf-h-300{height:300px}.adf-chartwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}</style>';
+    echo '<div class="adf-grid">';
+    echo '<div class="adf-card"><h3>Global Progress</h3>'; adf_dash_progress_widget(); echo '</div>';
+    echo '<div class="adf-card"><h3>Status Breakdown (Donut)</h3>'; adf_dash_chart_widget(); echo '</div>';
+    echo '<div class="adf-card"><h3>Status Breakdown (Bars)</h3>'; adf_dash_bars_widget(); echo '</div>';
+    echo '<div class="adf-card"><h3>Blocked / Pending validation</h3>'; adf_dash_blocked_widget(); echo '</div>';
+    echo '<div class="adf-card"><h3>Latest modified pages</h3>'; adf_dash_latest_widget(); echo '</div>';
+    echo '<div class="adf-card"><h3>Health check (pages without content)</h3>'; adf_dash_health_widget(); echo '</div>';
+    echo '</div>';
+    echo '</div>';
+}
+
+function adf_register_dashboard_widgets() {
+    wp_add_dashboard_widget('adf_dash_progress','Atomic Design: Overall Progress','adf_dash_progress_widget');
+    wp_add_dashboard_widget('adf_dash_chart','Atomic Design: Status Chart','adf_dash_chart_widget');
+    wp_add_dashboard_widget('adf_dash_bars','Atomic Design: Status Bars','adf_dash_bars_widget');
+    wp_add_dashboard_widget('adf_dash_blocked','Atomic Design: Blocked / Pending','adf_dash_blocked_widget');
+    wp_add_dashboard_widget('adf_dash_latest','Atomic Design: Latest modified pages','adf_dash_latest_widget');
+    wp_add_dashboard_widget('adf_dash_health','Atomic Design: Health check (pages without content)','adf_dash_health_widget');
+}
+add_action('wp_dashboard_setup','adf_register_dashboard_widgets');
+
+function adf_dash_progress_widget() {
+    $s = adf_dev_status_stats();
+    echo '<div class="adf-chartwrap adf-h-300"><canvas id="adfDashProgress"></canvas></div>';
+    adf_chartjs_once();
+    $remaining = max(0, intval($s['total']) - intval($s['approved']));
+    echo '<script>(function(){
+      var ctx=document.getElementById("adfDashProgress").getContext("2d");
+      var pct='.intval($s['progress']).';
+      var centerText={id:"centerText",afterDraw:function(c){var w=c.width,h=c.height,ctx=c.ctx;ctx.save();ctx.font="bold 18px system-ui";ctx.fillStyle="#333";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(pct+"%", w/2, h/2);ctx.restore();}};
+      new Chart(ctx,{type:"doughnut",data:{labels:["Complete","Remaining"],datasets:[{data:['.intval($s['approved']).','.$remaining.'],backgroundColor:["#2ecc71","#e0e0e0"]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:100,cutout:"70%",plugins:{legend:{position:"bottom"}}},plugins:[centerText]});
+    })();</script>';
+}
+
+function adf_dash_chart_widget() {
+    $s = adf_dev_status_stats();
+    echo '<div class="adf-chartwrap adf-h-200"><canvas id="adfDashChart"></canvas></div>';
+    adf_chartjs_once();
+    echo '<script>(function(){var ctx=document.getElementById("adfDashChart").getContext("2d");new Chart(ctx,{type:"doughnut",data:{labels:["In development","Pending validation","Approved","Blocked","Not started"],datasets:[{data:['.$s['in_dev'].','.$s['pending'].','.$s['approved'].','.$s['blocked'].','.$s['not_started'].'],backgroundColor:["#3498db","#f39c12","#2ecc71","#e74c3c","#bdc3c7"]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:100,plugins:{legend:{position:"bottom"}}}});})();</script>';
+}
+
+function adf_dash_blocked_widget() {
+    $list = function($slug,$title){
+        $q = new WP_Query(['post_type'=>'page','post_status'=>['publish','pending','draft','future','private'],'posts_per_page'=>10,'orderby'=>'modified','order'=>'DESC','tax_query'=>[[ 'taxonomy'=>'dev_status','field'=>'slug','terms'=>[$slug] ]]]);
+        echo '<h3 style="margin:8px 0">'.$title.'</h3><table class="widefat"><thead><tr><th>Page</th><th>Last edit</th><th>Author</th></tr></thead><tbody>';
+        if ($q->have_posts()) { while ($q->have_posts()) { $q->the_post();
+            $author = get_the_author();
+            $modified = get_the_modified_time('Y-m-d H:i');
+            echo '<tr><td><a href="'.esc_url(get_edit_post_link()).'">'.esc_html(get_the_title()).'</a></td><td>'.esc_html($modified).'</td><td>'.esc_html($author).'</td></tr>';
+        } wp_reset_postdata(); } else { echo '<tr><td colspan="3">None</td></tr>'; }
+        echo '</tbody></table>';
+    };
+    $list('blocked','Blocked (missing content)');
+    $list('pending-validation','Pending validation');
+}
+
+function adf_dash_latest_widget() {
+    $recent = new WP_Query(['post_type'=>'page','post_status'=>['publish','pending','draft','future','private'],'posts_per_page'=>10,'orderby'=>'modified','order'=>'DESC']);
+    echo '<table class="widefat"><thead><tr><th>Page</th><th>Status</th><th>Date</th><th>User</th><th>Actions</th></tr></thead><tbody>';
+    if ($recent->have_posts()) { while ($recent->have_posts()) { $recent->the_post();
+        $author = get_the_author();
+        $modified = get_the_modified_time('Y-m-d H:i');
+        $terms = wp_get_object_terms(get_the_ID(),'dev_status');
+        $status = count($terms) ? esc_html($terms[0]->name) : 'Not started';
+        $edit = '<a href="'.esc_url(get_edit_post_link()).'">Edit</a>';
+        $quick = '<a href="'.esc_url(admin_url('edit.php?post_type=page')).'">Quick Edit</a>';
+        echo '<tr><td><a href="'.esc_url(get_edit_post_link()).'">'.esc_html(get_the_title()).'</a></td><td>'.$status.'</td><td>'.esc_html($modified).'</td><td>'.esc_html($author).'</td><td>'.$edit.' | '.$quick.'</td></tr>';
+    } wp_reset_postdata(); } else { echo '<tr><td colspan="5">No recent edits</td></tr>'; }
+    echo '</tbody></table>';
+}
+
+function adf_dash_health_widget() {
+    $q = new WP_Query(['post_type'=>'page','post_status'=>['publish','pending','draft','future','private'],'posts_per_page'=>200,'orderby'=>'modified','order'=>'DESC','fields'=>'ids']);
+    $rows = [];
+    foreach ($q->posts as $pid) {
+        $p = get_post($pid);
+        $content = trim(preg_replace('/\s+/',' ',wp_strip_all_tags($p->post_content)));
+        if ($content === '') { $rows[] = $p; }
+    }
+    echo '<table class="widefat"><thead><tr><th>Page</th><th>Last edit</th><th>Author</th></tr></thead><tbody>';
+    if (!empty($rows)) { foreach ($rows as $p) {
+        $author = get_the_author_meta('display_name',$p->post_author);
+        $modified = mysql2date('Y-m-d H:i',$p->post_modified);
+        echo '<tr><td><a href="'.esc_url(get_edit_post_link($p->ID)).'">'.esc_html(get_the_title($p->ID)).'</a></td><td>'.esc_html($modified).'</td><td>'.esc_html($author).'</td></tr>';
+    }} else { echo '<tr><td colspan="3">All good</td></tr>'; }
+    echo '</tbody></table>';
+}
+function adf_dash_bars_widget() {
+    $s = adf_dev_status_stats();
+    echo '<div class="adf-chartwrap adf-h-200"><canvas id="adfDashBars"></canvas></div>';
+    adf_chartjs_once();
+    echo '<script>(function(){var ctx=document.getElementById("adfDashBars").getContext("2d");new Chart(ctx,{type:"bar",data:{labels:["Not started","In development","Pending","Approved","Blocked"],datasets:[{label:"Pages",data:['.$s['not_started'].','.$s['in_dev'].','.$s['pending'].','.$s['approved'].','.$s['blocked'].'],backgroundColor:["#bdc3c7","#3498db","#f39c12","#2ecc71","#e74c3c"]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:100,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});})();</script>';
+}
