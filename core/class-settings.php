@@ -35,13 +35,17 @@ add_action('admin_init','adf_redirect_old_dashboard_page');
 
 function adf_tools_html() {
     $tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'dashboard';
+    $can_settings = current_user_can('manage_options');
+    if ($tab === 'settings' && !$can_settings) { $tab = 'dashboard'; }
     $is_dash = ($tab === 'settings') ? false : true;
     $dash_url = admin_url('options-general.php?page=wp-atomic-design&tab=dashboard');
     $set_url = admin_url('options-general.php?page=wp-atomic-design&tab=settings');
     echo '<div class="wrap"><h1>WP Atomic Design Framework</h1>';
     echo '<h2 class="nav-tab-wrapper">';
     echo '<a href="'.esc_url($dash_url).'" class="nav-tab'.($is_dash?' nav-tab-active':'').'">Dashboard</a>';
-    echo '<a href="'.esc_url($set_url).'" class="nav-tab'.(!$is_dash?' nav-tab-active':'').'">Settings</a>';
+    if ($can_settings) {
+        echo '<a href="'.esc_url($set_url).'" class="nav-tab'.(!$is_dash?' nav-tab-active':'').'">Settings</a>';
+    }
     echo '</h2>';
     if ($is_dash) { adf_dashboard_html(); } else { adf_settings_html(); }
     echo '</div>';
