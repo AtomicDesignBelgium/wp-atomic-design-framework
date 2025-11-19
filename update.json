@@ -1,7 +1,7 @@
 {
   "name": "WP Atomic Design Framework",
   "slug": "wp-atomic-design-framework",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": "Atomic Design",
   "download_url": "https://github.com/AtomicDesignBelgium/wp-atomic-design-framework/releases/latest/download/wp-atomic-design-framework.zip",
   "requires": "5.8",
@@ -9,6 +9,6 @@
   "tested": "6.7",
   "sections": {
     "description": "Auto-updating version of the WP Atomic Design Framework plugin.",
-    "changelog": "Bump to 1.0.3; settings dashboard: 3-column grid, Chart.js visual widgets, stable chart sizing; status counters fixed; reuse widgets across dashboard pages."
+    "changelog": "Bump to 1.0.4; production fix: always register dev_status taxonomy, compute stats even when Dev Tags UI disabled; dashboard layout and charts improvements."
   }
 }
