@@ -6,6 +6,7 @@ function adf_sanitize_options($input) {
     return [
         'enable_dev_tags' => !empty($input['enable_dev_tags']) ? 1 : 0,
         'hide_author' => !empty($input['hide_author']) ? 1 : 0,
+        'hide_commercial_notices' => !empty($input['hide_commercial_notices']) ? 1 : 0,
     ];
 }
 
@@ -46,7 +47,7 @@ function adf_tools_html() {
     echo '<div class="wrap"><h1>WP Atomic Design Framework</h1>';
     echo '<h2 class="nav-tab-wrapper">';
     echo '<a href="'.esc_url($dash_url).'" class="nav-tab'.($active_dashboard?' nav-tab-active':'').'">Dashboard</a>';
-    echo '<a href="'.esc_url($notes_url).'" class="nav-tab'.($active_notes?' nav-tab-active':'').'">Notes</a>';
+    echo '<a href="'.esc_url($notes_url).'" class="nav-tab'.($active_notes?' nav-tab-active':'').'">Internal Notes</a>';
     if ($can_settings) {
         echo '<a href="'.esc_url($set_url).'" class="nav-tab'.($active_settings?' nav-tab-active':'').'">Settings</a>';
     }
@@ -65,6 +66,7 @@ function adf_settings_html() {
         <table class="form-table">
             <tr><th>Enable Dev Tags</th><td><input type="checkbox" name="atomic_design_tools_settings[enable_dev_tags]" value="1" <?php checked(1, isset($options['enable_dev_tags']) ? $options['enable_dev_tags'] : 0); ?>></td></tr>
             <tr><th>Hide Author Column</th><td><input type="checkbox" name="atomic_design_tools_settings[hide_author]" value="1" <?php checked(1, isset($options['hide_author']) ? $options['hide_author'] : 0); ?>></td></tr>
+            <tr><th>Disable commercial notices</th><td><input type="checkbox" name="atomic_design_tools_settings[hide_commercial_notices]" value="1" <?php checked(1, isset($options['hide_commercial_notices']) ? $options['hide_commercial_notices'] : 0); ?>></td></tr>
         </table>
         <?php submit_button(); ?>
     </form></div>
@@ -72,6 +74,16 @@ function adf_settings_html() {
         <a class="button" href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=adf_force_update'),'adf_force_update'); ?>">Check for Updates</a>
     </div>
 <?php }
+
+function adf_apply_notice_hide() {
+    $o = adf_get_options();
+    if (!empty($o['hide_commercial_notices'])) {
+        add_action('admin_print_styles', function () {
+            echo '<style>.notice-warning,.notice-info,.notice-success{display:none!important}</style>';
+        });
+    }
+}
+add_action('admin_init','adf_apply_notice_hide');
 
 function adf_force_update() {
     if (!current_user_can('manage_options')) return;
