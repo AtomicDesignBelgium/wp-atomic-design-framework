@@ -5,13 +5,17 @@ class ADF_DevStatus {
     function __construct() {
         add_action('init', [$this,'register']);
         add_action('init', [$this,'ensure_terms']);
-        add_action('add_meta_boxes', [$this,'add_box']);
-        add_action('save_post', [$this,'save_box']);
-        add_action('restrict_manage_posts', [$this,'add_list_filter']);
-        add_action('pre_get_posts', [$this,'apply_list_filter']);
-        add_filter('bulk_actions-edit-page', [$this,'register_bulk_actions']);
-        add_filter('handle_bulk_actions-edit-page', [$this,'handle_bulk_action'], 10, 3);
-        add_action('admin_notices', [$this,'bulk_action_notice']);
+        $opt = function_exists('adf_get_options') ? adf_get_options() : [];
+        $enabled = !empty($opt['enable_dev_tags']);
+        if ($enabled) {
+            add_action('add_meta_boxes', [$this,'add_box']);
+            add_action('save_post', [$this,'save_box']);
+            add_action('restrict_manage_posts', [$this,'add_list_filter']);
+            add_action('pre_get_posts', [$this,'apply_list_filter']);
+            add_filter('bulk_actions-edit-page', [$this,'register_bulk_actions']);
+            add_filter('handle_bulk_actions-edit-page', [$this,'handle_bulk_action'], 10, 3);
+            add_action('admin_notices', [$this,'bulk_action_notice']);
+        }
     }
     function lang() {
         $l = get_locale();

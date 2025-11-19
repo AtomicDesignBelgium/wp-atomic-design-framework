@@ -21,9 +21,7 @@ require_once ADF_PATH . 'core/class-updater.php';
 
 $options = adf_get_options();
 
-if (!empty($options['enable_dev_tags'])) {
-    require_once ADF_PATH . 'modules/dev-status/class-devstatus.php';
-}
+require_once ADF_PATH . 'modules/dev-status/class-devstatus.php';
 
 if (!empty($options['hide_author'])) {
     require_once ADF_PATH . 'modules/author-column/class-author.php';

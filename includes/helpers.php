@@ -21,17 +21,7 @@ function adf_dev_status_stats() {
     $counts = wp_count_posts('page');
     $total = 0;
     foreach (['publish','pending','draft','future','private'] as $st) { $total += isset($counts->$st) ? intval($counts->$st) : 0; }
-    if (empty($opt['enable_dev_tags'])) {
-        return [
-            'total'=>$total,
-            'approved'=>0,
-            'pending'=>0,
-            'in_dev'=>0,
-            'blocked'=>0,
-            'not_started'=>0,
-            'progress'=>0,
-        ];
-    }
+    // Always compute stats; UI can be disabled while taxonomy remains registered
     $base = [
         'post_type'=>'page',
         'post_status'=>['publish','pending','draft','future','private'],
