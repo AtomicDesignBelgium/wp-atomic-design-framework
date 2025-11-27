@@ -8,6 +8,11 @@ function adf_get_options() {
     $o['hide_author'] = !empty($o['hide_author']) ? 1 : 0;
     $o['hide_commercial_notices'] = !empty($o['hide_commercial_notices']) ? 1 : 0;
     $o['menu_status_indicator'] = !empty($o['menu_status_indicator']) ? 1 : 0;
+    $o['breadcrumbs_enable'] = !empty($o['breadcrumbs_enable']) ? 1 : 0;
+    $o['breadcrumbs_show_home'] = array_key_exists('breadcrumbs_show_home',$o) ? (!empty($o['breadcrumbs_show_home'])?1:0) : 1;
+    $o['breadcrumbs_separator'] = !empty($o['breadcrumbs_separator']) ? sanitize_text_field($o['breadcrumbs_separator']) : '›';
+    $o['breadcrumbs_show_current'] = array_key_exists('breadcrumbs_show_current',$o) ? (!empty($o['breadcrumbs_show_current'])?1:0) : 1;
+    $o['breadcrumbs_max_depth'] = !empty($o['breadcrumbs_max_depth']) ? intval($o['breadcrumbs_max_depth']) : 5;
     return $o;
 }
 

@@ -8,6 +8,11 @@ function adf_sanitize_options($input) {
         'hide_author' => !empty($input['hide_author']) ? 1 : 0,
         'hide_commercial_notices' => !empty($input['hide_commercial_notices']) ? 1 : 0,
         'menu_status_indicator' => !empty($input['menu_status_indicator']) ? 1 : 0,
+        'breadcrumbs_enable' => !empty($input['breadcrumbs_enable']) ? 1 : 0,
+        'breadcrumbs_show_home' => !empty($input['breadcrumbs_show_home']) ? 1 : 0,
+        'breadcrumbs_separator' => isset($input['breadcrumbs_separator']) ? sanitize_text_field($input['breadcrumbs_separator']) : '›',
+        'breadcrumbs_show_current' => !empty($input['breadcrumbs_show_current']) ? 1 : 0,
+        'breadcrumbs_max_depth' => isset($input['breadcrumbs_max_depth']) ? max(1,intval($input['breadcrumbs_max_depth'])) : 5,
     ];
 }
 
@@ -40,14 +45,17 @@ function adf_tools_html() {
     $can_settings = current_user_can('manage_options');
     if ($tab === 'settings' && !$can_settings) { $tab = 'dashboard'; }
     if ($tab === 'slugs' && !$can_settings) { $tab = 'dashboard'; }
+    if ($tab === 'features' && !$can_settings) { $tab = 'dashboard'; }
     $active_dashboard = ($tab === 'dashboard');
     $active_notes = ($tab === 'notes');
     $active_settings = ($tab === 'settings');
     $active_slugs = ($tab === 'slugs');
+    $active_features = ($tab === 'features');
     $dash_url = admin_url('options-general.php?page=wp-atomic-design&tab=dashboard');
     $set_url = admin_url('options-general.php?page=wp-atomic-design&tab=settings');
     $notes_url = admin_url('options-general.php?page=wp-atomic-design&tab=notes');
     $slugs_url = admin_url('options-general.php?page=wp-atomic-design&tab=slugs');
+    $features_url = admin_url('options-general.php?page=wp-atomic-design&tab=features');
     echo '<div class="wrap"><h1>WP Atomic Design Framework</h1>';
     echo '<h2 class="nav-tab-wrapper">';
     echo '<a href="'.esc_url($dash_url).'" class="nav-tab'.($active_dashboard?' nav-tab-active':'').'">Dashboard</a>';
@@ -55,12 +63,14 @@ function adf_tools_html() {
     if ($can_settings) {
         echo '<a href="'.esc_url($set_url).'" class="nav-tab'.($active_settings?' nav-tab-active':'').'">Settings</a>';
         echo '<a href="'.esc_url($slugs_url).'" class="nav-tab'.($active_slugs?' nav-tab-active':'').'">Slugs</a>';
+        echo '<a href="'.esc_url($features_url).'" class="nav-tab'.($active_features?' nav-tab-active':'').'">Custom Features</a>';
     }
     echo '</h2>';
     if ($active_dashboard) { adf_dashboard_html(); }
     else if ($active_settings) { adf_settings_html(); }
     else if ($active_notes) { if (class_exists('ADF\\ADF_InternalNotes')) { (new ADF\ADF_InternalNotes())->admin_page(); } }
     else if ($active_slugs) { adf_slugs_html(); }
+    else if ($active_features) { adf_features_html(); }
     echo '</div>';
 }
 
@@ -90,6 +100,25 @@ function adf_apply_notice_hide() {
         });
     }
 }
+
+function adf_features_html() {
+    $o = adf_get_options(); ?>
+    <div class="wrap"><h1>Custom Features</h1>
+    <h2>Breadcrumbs</h2>
+    <form method="post" action="options.php">
+        <?php settings_fields('atomic_design_tools_group'); ?>
+        <table class="form-table">
+            <tr><th>Enable Breadcrumbs</th><td><input type="checkbox" name="atomic_design_tools_settings[breadcrumbs_enable]" value="1" <?php checked(1, isset($o['breadcrumbs_enable']) ? $o['breadcrumbs_enable'] : 0); ?>></td></tr>
+            <tr><th>Show Home link</th><td><input type="checkbox" name="atomic_design_tools_settings[breadcrumbs_show_home]" value="1" <?php checked(1, isset($o['breadcrumbs_show_home']) ? $o['breadcrumbs_show_home'] : 1); ?>></td></tr>
+            <tr><th>Separator</th><td><input type="text" name="atomic_design_tools_settings[breadcrumbs_separator]" value="<?php echo esc_attr(isset($o['breadcrumbs_separator']) ? $o['breadcrumbs_separator'] : '›'); ?>" style="width:120px"></td></tr>
+            <tr><th>Show current page</th><td><input type="checkbox" name="atomic_design_tools_settings[breadcrumbs_show_current]" value="1" <?php checked(1, isset($o['breadcrumbs_show_current']) ? $o['breadcrumbs_show_current'] : 1); ?>></td></tr>
+            <tr><th>Max depth</th><td><input type="number" name="atomic_design_tools_settings[breadcrumbs_max_depth]" min="1" max="10" value="<?php echo esc_attr(isset($o['breadcrumbs_max_depth']) ? $o['breadcrumbs_max_depth'] : 5); ?>" style="width:80px"></td></tr>
+        </table>
+        <?php submit_button(); ?>
+    </form>
+    <p>Use the shortcode <code>[adf_breadcrumbs]</code> or insert the "ADF Breadcrumbs" block/pattern in the editor.</p>
+    </div>
+<?php }
 add_action('admin_init','adf_apply_notice_hide');
 
 function adf_force_update() {
@@ -254,6 +283,7 @@ function adf_menu_status_class($classes, $item, $args) {
     $o = adf_get_options();
     if (empty($o['menu_status_indicator'])) return $classes;
     if (!is_user_logged_in() || !current_user_can('edit_pages')) return $classes;
+    foreach ($classes as $c) { if (strpos($c,'adf-dev-status-') === 0) { return $classes; } }
     $pid = adf_resolve_page_id_from_menu_item($item);
     if (!$pid) return $classes;
     $terms = wp_get_object_terms($pid, 'dev_status');
@@ -270,14 +300,104 @@ function adf_menu_status_css() {
     if (empty($o['menu_status_indicator'])) return;
     if (!is_user_logged_in() || !current_user_can('edit_pages')) return;
     echo '<style id="adf-menu-status-css">'
-        . '.adf-dev-status a::after{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-left:4px;vertical-align:middle;background:#bdc3c7}'
-        . '.adf-dev-status-approved a::after{background:#2ecc71}'
-        . '.adf-dev-status-pending-validation a::after{background:#f39c12}'
-        . '.adf-dev-status-in-development a::after{background:#3498db}'
-        . '.adf-dev-status-blocked a::after{background:#e74c3c}'
+        . '.adf-dev-status a::before{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-right:6px;vertical-align:middle;background:#bdc3c7}'
+        . '.adf-dev-status-approved a::before{background:#2ecc71}'
+        . '.adf-dev-status-pending-validation a::before{background:#f39c12}'
+        . '.adf-dev-status-in-development a::before{background:#3498db}'
+        . '.adf-dev-status-blocked a::before{background:#e74c3c}'
         . '</style>';
 }
 add_action('wp_head','adf_menu_status_css');
+
+function adf_menu_status_prepare($items, $args) {
+    $o = adf_get_options();
+    if (empty($o['menu_status_indicator'])) return $items;
+    if (!is_user_logged_in() || !current_user_can('edit_pages')) return $items;
+    $parents = [];$slugOwn = [];
+    foreach ($items as $it) {
+        $parents[$it->ID] = intval($it->menu_item_parent);
+        $pid = adf_resolve_page_id_from_menu_item($it);
+        if ($pid) {
+            $terms = wp_get_object_terms($pid,'dev_status');
+            $slugOwn[$it->ID] = (!is_wp_error($terms) && !empty($terms) && isset($terms[0]->slug)) ? $terms[0]->slug : '';
+        } else {
+            $slugOwn[$it->ID] = '';
+        }
+    }
+    $getDepth = function($id) use ($parents) { $d=0; while (!empty($parents[$id])) { $id=$parents[$id]; $d++; if ($d>20) break; } return $d; };
+    $inheritSlug = function($id) use ($parents,$slugOwn) {
+        $cur = $id; $s = isset($slugOwn[$cur]) ? $slugOwn[$cur] : '';
+        if ($s) return $s;
+        while (!empty($parents[$cur])) { $cur = $parents[$cur]; $s = isset($slugOwn[$cur]) ? $slugOwn[$cur] : ''; if ($s) return $s; }
+        return 'empty';
+    };
+    foreach ($items as $i=>$it) {
+        $depth = $getDepth($it->ID);
+        $slug = isset($slugOwn[$it->ID]) ? $slugOwn[$it->ID] : '';
+        if ($depth >= 2) { $slug = $inheritSlug($it->ID); }
+        if (!$slug) { $slug = 'empty'; }
+        $it->classes[] = 'adf-dev-status';
+        $it->classes[] = 'adf-dev-status-' . sanitize_html_class($slug);
+        $items[$i] = $it;
+    }
+    return $items;
+}
+add_filter('wp_nav_menu_objects','adf_menu_status_prepare', 10, 2);
+
+function adf_breadcrumbs_build($args=[]) {
+    $o = adf_get_options();
+    $enabled = !empty($o['breadcrumbs_enable']);
+    $sep = isset($o['breadcrumbs_separator']) ? $o['breadcrumbs_separator'] : '›';
+    $show_home = isset($o['breadcrumbs_show_home']) ? !!$o['breadcrumbs_show_home'] : true;
+    $show_current = isset($o['breadcrumbs_show_current']) ? !!$o['breadcrumbs_show_current'] : true;
+    $max_depth = isset($o['breadcrumbs_max_depth']) ? intval($o['breadcrumbs_max_depth']) : 5;
+    if (isset($args['separator'])) { $sep = sanitize_text_field($args['separator']); }
+    if (isset($args['show_home'])) { $show_home = !!$args['show_home']; }
+    if (isset($args['show_current'])) { $show_current = !!$args['show_current']; }
+    if (isset($args['max_depth'])) { $max_depth = max(1,intval($args['max_depth'])); }
+    if (!$enabled) return '';
+    $links = [];
+    if ($show_home) { $links[] = ['url'=>home_url('/'),'label'=>get_bloginfo('name')]; }
+    if (is_page()) {
+        $id = get_queried_object_id();
+        $anc = get_post_ancestors($id); $anc = array_reverse($anc);
+        $count = 0;
+        foreach ($anc as $aid) { $links[] = ['url'=>get_permalink($aid),'label'=>get_the_title($aid)]; $count++; if ($count >= $max_depth) break; }
+        if ($show_current) { $links[] = ['url'=>'','label'=>get_the_title($id)]; }
+    } else if (is_single()) {
+        $id = get_queried_object_id();
+        $cat = get_the_category($id); $cat = is_array($cat) && !empty($cat) ? $cat[0] : null;
+        if ($cat) { $links[] = ['url'=>get_category_link($cat->term_id),'label'=>$cat->name]; }
+        if ($show_current) { $links[] = ['url'=>'','label'=>get_the_title($id)]; }
+    } else if (is_category()) {
+        $term = get_queried_object(); if ($term && isset($term->name)) { $links[] = ['url'=>'','label'=>$term->name]; }
+    }
+    $html = '<nav class="adf-breadcrumbs" aria-label="Breadcrumbs">';
+    $html .= '<span class="adf-bc-inner">';
+    for ($i=0; $i<count($links); $i++) {
+        $l = $links[$i]; $is_last = ($i === count($links)-1);
+        if (!$is_last && !empty($l['url'])) { $html .= '<a href="'.esc_url($l['url']).'">'.esc_html($l['label']).'</a>'; }
+        else { $html .= '<span>'.esc_html($l['label']).'</span>'; }
+        if (!$is_last) { $html .= ' <span class="adf-bc-sep">'.esc_html($sep).'</span> '; }
+    }
+    $html .= '</span></nav>';
+    return $html;
+}
+
+function adf_breadcrumbs_shortcode($atts=[]) { return adf_breadcrumbs_build($atts); }
+add_shortcode('adf_breadcrumbs','adf_breadcrumbs_shortcode');
+
+function adf_register_breadcrumbs_pattern() {
+    if (!function_exists('register_block_pattern')) return;
+    $content = '<!-- wp:shortcode -->[adf_breadcrumbs]<!-- /wp:shortcode -->';
+    register_block_pattern('adf/breadcrumbs',[
+        'title'=>'ADF Breadcrumbs',
+        'description'=>'Breadcrumbs navigation using ADF settings',
+        'content'=>$content,
+        'categories'=>['widgets','text']
+    ]);
+}
+add_action('init','adf_register_breadcrumbs_pattern');
 
 function adf_current_page_id() {
     // Front-end singular page
