@@ -20,7 +20,7 @@ class ADF_InternalNotes {
         add_action('wp_ajax_adf_upload_note_file', [ADF_Notes_Actions::class,'ajax_upload_file']);
         add_action('admin_post_adf_download_note_file', [ADF_Notes_Actions::class,'download_file']);
         add_action('admin_post_adf_download_note_root_file', [ADF_Notes_Actions::class,'download_note_root_file']);
-        add_action('wp_dashboard_setup', [$this,'register_dash_widgets']);
+        add_action('wp_dashboard_setup', [ADF_Notes_View::class,'register_dash_widgets']);
     }
 
     function register_admin() {
