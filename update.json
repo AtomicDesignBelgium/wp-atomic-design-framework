@@ -1,7 +1,7 @@
 {
   "name": "WP Atomic Design Framework",
   "slug": "wp-atomic-design-framework",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "Atomic Design",
   "download_url": "https://github.com/AtomicDesignBelgium/wp-atomic-design-framework/releases/latest/download/wp-atomic-design-framework.zip",
   "requires": "5.8",

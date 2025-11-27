@@ -1,0 +1,7 @@
+/* Basic styles moved from inline usage, keep minimal as original relied on inline styles */
+.adf-selected-files span { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border:1px solid #ddd; border-radius:12px; margin:3px; }
+.adf-selected-files span .adfFileRemove { text-decoration:none; }
+.adf-notes-create { max-width: 860px; }
+.adf-threads { margin-top: 12px; }
+.adfBadge { font-size:12px; line-height:18px; }
+

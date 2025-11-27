@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/AtomicDesignBelgium/wp-atomic-design-framework.git
  * Description: Modular framework plugin for Atomic Design tools.
  * Author: Bernard Coubeaux / Atomic Design Belgium SRL
- * Version: 1.0.5
+ * Version: 1.0.6
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Update URI: https://raw.githubusercontent.com/AtomicDesignBelgium/wp-atomic-design-framework/main/update.json

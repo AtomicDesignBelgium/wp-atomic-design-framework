@@ -2,73 +2,49 @@
 namespace ADF;
 if (!defined('ABSPATH')) exit;
 
+require_once __DIR__ . '/notes-controller.php';
+require_once __DIR__ . '/notes-view.php';
+require_once __DIR__ . '/notes-actions.php';
+
 class ADF_InternalNotes {
-    static function install() {
-        global $wpdb;
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        $charset = $wpdb->get_charset_collate();
-        $notes = $wpdb->prefix . 'adf_notes';
-        $comments = $wpdb->prefix . 'adf_notes_comments';
-        $sql1 = "CREATE TABLE {$notes} (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            post_id BIGINT UNSIGNED NULL,
-            title VARCHAR(255) NOT NULL,
-            content LONGTEXT NOT NULL,
-            author BIGINT UNSIGNED NOT NULL,
-            status VARCHAR(20) NOT NULL,
-            validation_status VARCHAR(20) NOT NULL,
-            priority VARCHAR(20) NOT NULL,
-            media LONGTEXT NULL,
-            validated_by BIGINT UNSIGNED NULL,
-            ref VARCHAR(16) NOT NULL,
-            created_at DATETIME NOT NULL,
-            updated_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            KEY post_id (post_id),
-            KEY status (status),
-            KEY validation_status (validation_status),
-            KEY priority (priority)
-        ) {$charset};";
-        $sql2 = "CREATE TABLE {$comments} (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            note_id BIGINT UNSIGNED NOT NULL,
-            author BIGINT UNSIGNED NOT NULL,
-            content LONGTEXT NOT NULL,
-            media LONGTEXT NULL,
-            created_at DATETIME NOT NULL,
-            PRIMARY KEY (id),
-            KEY note_id (note_id)
-        ) {$charset};";
-        dbDelta($sql1);
-        dbDelta($sql2);
-        $upload = wp_upload_dir();
-        $dir = trailingslashit($upload['basedir']) . 'adf-notes';
-        if (!is_dir($dir)) wp_mkdir_p($dir);
-        $ht = $dir . '/.htaccess';
-        if (!file_exists($ht)) {
-            $rules = "Options -Indexes\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder allow,deny\nDeny from all\n</IfModule>\n";
-            @file_put_contents($ht, $rules);
-        }
-    }
+    static function install() { ADF_Notes_Controller::install(); }
 
     function __construct() {
         add_action('add_meta_boxes', [$this,'add_box']);
         add_action('admin_menu', [$this,'register_admin']);
-        $this->ensure_schema();
-        add_action('wp_ajax_adf_create_note', [$this,'ajax_create_note']);
-        add_action('wp_ajax_adf_add_comment', [$this,'ajax_add_comment']);
-        add_action('wp_ajax_adf_update_note', [$this,'ajax_update_note']);
-        add_action('wp_ajax_adf_upload_note_file', [$this,'ajax_upload_file']);
-        add_action('admin_post_adf_download_note_file', [$this,'download_file']);up        add_action('admin_post_adf_download_note_root_file', [$this,'download_note_root_file']);
+        add_action('admin_enqueue_scripts', [$this,'enqueue_admin_assets']);
+        ADF_Notes_Controller::ensure_schema();
+        add_action('wp_ajax_adf_create_note', [ADF_Notes_Actions::class,'ajax_create_note']);
+        add_action('wp_ajax_adf_add_comment', [ADF_Notes_Actions::class,'ajax_add_comment']);
+        add_action('wp_ajax_adf_update_note', [ADF_Notes_Actions::class,'ajax_update_note']);
+        add_action('wp_ajax_adf_upload_note_file', [ADF_Notes_Actions::class,'ajax_upload_file']);
+        add_action('admin_post_adf_download_note_file', [ADF_Notes_Actions::class,'download_file']);
+        add_action('admin_post_adf_download_note_root_file', [ADF_Notes_Actions::class,'download_note_root_file']);
         add_action('wp_dashboard_setup', [$this,'register_dash_widgets']);
     }
 
     function register_admin() {
-        add_menu_page('Internal Notes','Internal Notes','edit_pages','adf-internal-notes',[$this,'admin_page'],'dashicons-admin-comments',58);
+        add_menu_page('Internal Notes','Internal Notes','edit_pages','adf-internal-notes',[ADF_Notes_View::class,'admin_page'],'dashicons-admin-comments',58);
     }
 
     function add_box() {
-        add_meta_box('adf_internal_notes','Internal Notes',[$this,'box_html'],'page','side');
+        add_meta_box('adf_internal_notes','Internal Notes',[ADF_Notes_View::class,'box_html'],'page','side');
+    }
+
+    function enqueue_admin_assets() {
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        $screen_id = $screen ? $screen->id : '';
+        $on_notes_page = ($screen_id === 'toplevel_page_adf-internal-notes');
+        $on_page_edit = (strpos($screen_id, 'page') !== false);
+        if ($on_notes_page || $on_page_edit) {
+            $base = plugin_dir_url(__FILE__) . 'assets/';
+            wp_enqueue_style('adf-notes', $base . 'admin-notes.css', [], null);
+            wp_enqueue_script('adf-notes', $base . 'admin-notes.js', [], null, true);
+            wp_localize_script('adf-notes','ADFNotes',[
+                'nonce'=>wp_create_nonce('adf_notes'),
+                'ajaxurl'=>admin_url('admin-ajax.php'),
+            ]);
+        }
     }
 
     function box_html($post) {
