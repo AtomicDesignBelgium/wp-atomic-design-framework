@@ -23,7 +23,7 @@ class ADF_Updater {
         $plugin_data = get_plugin_data($plugin_file, false, false);
         $current = $plugin_data['Version'] ?? '0.0.0';
         if (version_compare($data['version'], $current, '>')) {
-            $obj = new stdClass();
+            $obj = new \stdClass();
             $obj->slug = $data['slug'] ?? 'wp-atomic-design-framework';
             $obj->new_version = $data['version'];
             $obj->package = $data['download_url'];
@@ -40,7 +40,7 @@ class ADF_Updater {
         $data = json_decode($body, true);
         if (!$data) return $res;
         if (isset($args->slug) && isset($data['slug']) && $args->slug !== $data['slug']) return $res;
-        $info = new stdClass();
+        $info = new \stdClass();
         $info->name = $data['name'] ?? 'WP Atomic Design Framework';
         $info->slug = $data['slug'] ?? 'wp-atomic-design-framework';
         $info->version = $data['version'] ?? '1.0.0';
