@@ -38,23 +38,28 @@ function adf_tools_html() {
     $tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'dashboard';
     $can_settings = current_user_can('manage_options');
     if ($tab === 'settings' && !$can_settings) { $tab = 'dashboard'; }
+    if ($tab === 'slugs' && !$can_settings) { $tab = 'dashboard'; }
     $active_dashboard = ($tab === 'dashboard');
     $active_notes = ($tab === 'notes');
     $active_settings = ($tab === 'settings');
+    $active_slugs = ($tab === 'slugs');
     $dash_url = admin_url('options-general.php?page=wp-atomic-design&tab=dashboard');
     $set_url = admin_url('options-general.php?page=wp-atomic-design&tab=settings');
     $notes_url = admin_url('options-general.php?page=wp-atomic-design&tab=notes');
+    $slugs_url = admin_url('options-general.php?page=wp-atomic-design&tab=slugs');
     echo '<div class="wrap"><h1>WP Atomic Design Framework</h1>';
     echo '<h2 class="nav-tab-wrapper">';
     echo '<a href="'.esc_url($dash_url).'" class="nav-tab'.($active_dashboard?' nav-tab-active':'').'">Dashboard</a>';
     echo '<a href="'.esc_url($notes_url).'" class="nav-tab'.($active_notes?' nav-tab-active':'').'">Internal Notes</a>';
     if ($can_settings) {
         echo '<a href="'.esc_url($set_url).'" class="nav-tab'.($active_settings?' nav-tab-active':'').'">Settings</a>';
+        echo '<a href="'.esc_url($slugs_url).'" class="nav-tab'.($active_slugs?' nav-tab-active':'').'">Slugs</a>';
     }
     echo '</h2>';
     if ($active_dashboard) { adf_dashboard_html(); }
     else if ($active_settings) { adf_settings_html(); }
     else if ($active_notes) { if (class_exists('ADF\\ADF_InternalNotes')) { (new ADF\ADF_InternalNotes())->admin_page(); } }
+    else if ($active_slugs) { adf_slugs_html(); }
     echo '</div>';
 }
 
@@ -189,4 +194,22 @@ function adf_dash_bars_widget() {
     echo '<div class="adf-chartwrap adf-h-200"><canvas id="adfDashBars"></canvas></div>';
     adf_chartjs_once();
     echo '<script>(function(){var ctx=document.getElementById("adfDashBars").getContext("2d");new Chart(ctx,{type:"bar",data:{labels:["Not started","In development","Pending","Approved","Blocked"],datasets:[{label:"Pages",data:['.$s['not_started'].','.$s['in_dev'].','.$s['pending'].','.$s['approved'].','.$s['blocked'].'],backgroundColor:["#bdc3c7","#3498db","#f39c12","#2ecc71","#e74c3c"]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,resizeDelay:100,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});})();</script>';
+}
+function adf_slugs_html() {
+    if (!current_user_can('manage_options')) return;
+    echo '<div class="wrap"><h1>Slugs</h1>';
+    echo '<p>Reference list of registered slugs.</p>';
+    $pts = get_post_types([], 'objects');
+    $txs = get_taxonomies([], 'objects');
+    global $wpdb; $meta_rows = $wpdb->get_results("SELECT meta_key, COUNT(*) AS c FROM {$wpdb->postmeta} GROUP BY meta_key ORDER BY c DESC LIMIT 200", ARRAY_A);
+    echo '<h2>Post Types</h2><table class="widefat"><thead><tr><th>Slug</th><th>Label</th></tr></thead><tbody>';
+    foreach ($pts as $pt) { echo '<tr><td>'.esc_html($pt->name).'</td><td>'.esc_html($pt->label).'</td></tr>'; }
+    echo '</tbody></table>';
+    echo '<h2 style="margin-top:16px">Taxonomies</h2><table class="widefat"><thead><tr><th>Slug</th><th>Label</th></tr></thead><tbody>';
+    foreach ($txs as $tx) { echo '<tr><td>'.esc_html($tx->name).'</td><td>'.esc_html($tx->label).'</td></tr>'; }
+    echo '</tbody></table>';
+    echo '<h2 style="margin-top:16px">Custom Fields (meta_key)</h2><table class="widefat"><thead><tr><th>Key</th><th>Count</th></tr></thead><tbody>';
+    if (is_array($meta_rows)) { foreach ($meta_rows as $r) { echo '<tr><td>'.esc_html($r['meta_key']).'</td><td>'.intval($r['c']).'</td></tr>'; } }
+    echo '</tbody></table>';
+    echo '</div>';
 }
