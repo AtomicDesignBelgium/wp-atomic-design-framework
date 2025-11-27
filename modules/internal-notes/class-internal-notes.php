@@ -48,7 +48,7 @@ class ADF_InternalNotes {
     }
 
     function box_html($post) {
-        wp_nonce_field('adf_notes','adf_notes_nonce');
+        return ADF_Notes_View::box_html($post);
         echo '<div id="adfNotesBox">';
         $notes = $this->get_notes(['post_id'=>$post->ID,'limit'=>5]);
         if (!empty($notes)) {
@@ -70,7 +70,7 @@ class ADF_InternalNotes {
     }
 
     function admin_page() {
-        echo '<div class="wrap">';
+        return ADF_Notes_View::admin_page();
         if (current_user_can('edit_pages')) {
             $is_admin = current_user_can('manage_options');
             
