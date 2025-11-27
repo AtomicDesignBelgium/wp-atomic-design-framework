@@ -7,6 +7,7 @@ function adf_get_options() {
     $o['enable_dev_tags'] = !empty($o['enable_dev_tags']) ? 1 : 0;
     $o['hide_author'] = !empty($o['hide_author']) ? 1 : 0;
     $o['hide_commercial_notices'] = !empty($o['hide_commercial_notices']) ? 1 : 0;
+    $o['menu_status_indicator'] = !empty($o['menu_status_indicator']) ? 1 : 0;
     return $o;
 }
 

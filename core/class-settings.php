@@ -7,6 +7,7 @@ function adf_sanitize_options($input) {
         'enable_dev_tags' => !empty($input['enable_dev_tags']) ? 1 : 0,
         'hide_author' => !empty($input['hide_author']) ? 1 : 0,
         'hide_commercial_notices' => !empty($input['hide_commercial_notices']) ? 1 : 0,
+        'menu_status_indicator' => !empty($input['menu_status_indicator']) ? 1 : 0,
     ];
 }
 
@@ -72,6 +73,7 @@ function adf_settings_html() {
             <tr><th>Enable Dev Tags</th><td><input type="checkbox" name="atomic_design_tools_settings[enable_dev_tags]" value="1" <?php checked(1, isset($options['enable_dev_tags']) ? $options['enable_dev_tags'] : 0); ?>></td></tr>
             <tr><th>Hide Author Column</th><td><input type="checkbox" name="atomic_design_tools_settings[hide_author]" value="1" <?php checked(1, isset($options['hide_author']) ? $options['hide_author'] : 0); ?>></td></tr>
             <tr><th>Disable commercial notices</th><td><input type="checkbox" name="atomic_design_tools_settings[hide_commercial_notices]" value="1" <?php checked(1, isset($options['hide_commercial_notices']) ? $options['hide_commercial_notices'] : 0); ?>></td></tr>
+            <tr><th>Front-end menu status dot</th><td><input type="checkbox" name="atomic_design_tools_settings[menu_status_indicator]" value="1" <?php checked(1, isset($options['menu_status_indicator']) ? $options['menu_status_indicator'] : 0); ?>><p class="description">Shows a color dot after page links in the site menus for admins/editors.</p></td></tr>
         </table>
         <?php submit_button(); ?>
     </form></div>
@@ -199,17 +201,135 @@ function adf_slugs_html() {
     if (!current_user_can('manage_options')) return;
     echo '<div class="wrap"><h1>Slugs</h1>';
     echo '<p>Reference list of registered slugs.</p>';
+    echo '<p><label>Search: <input type="search" id="adfSlugSearch" placeholder="Filter slugs, labels, meta keys" style="width:320px"></label></p>';
     $pts = get_post_types([], 'objects');
     $txs = get_taxonomies([], 'objects');
     global $wpdb; $meta_rows = $wpdb->get_results("SELECT meta_key, COUNT(*) AS c FROM {$wpdb->postmeta} GROUP BY meta_key ORDER BY c DESC LIMIT 200", ARRAY_A);
-    echo '<h2>Post Types</h2><table class="widefat"><thead><tr><th>Slug</th><th>Label</th></tr></thead><tbody>';
+    echo '<h2>Post Types</h2><table class="widefat adfSlugsTable" data-kind="pt"><thead><tr><th>Slug</th><th>Label</th></tr></thead><tbody>';
     foreach ($pts as $pt) { echo '<tr><td>'.esc_html($pt->name).'</td><td>'.esc_html($pt->label).'</td></tr>'; }
     echo '</tbody></table>';
-    echo '<h2 style="margin-top:16px">Taxonomies</h2><table class="widefat"><thead><tr><th>Slug</th><th>Label</th></tr></thead><tbody>';
+    echo '<h2 style="margin-top:16px">Taxonomies</h2><table class="widefat adfSlugsTable" data-kind="tx"><thead><tr><th>Slug</th><th>Label</th></tr></thead><tbody>';
     foreach ($txs as $tx) { echo '<tr><td>'.esc_html($tx->name).'</td><td>'.esc_html($tx->label).'</td></tr>'; }
     echo '</tbody></table>';
-    echo '<h2 style="margin-top:16px">Custom Fields (meta_key)</h2><table class="widefat"><thead><tr><th>Key</th><th>Count</th></tr></thead><tbody>';
+    echo '<h2 style="margin-top:16px">Custom Fields (meta_key)</h2><table class="widefat adfSlugsTable" data-kind="meta"><thead><tr><th>Key</th><th>Count</th></tr></thead><tbody>';
     if (is_array($meta_rows)) { foreach ($meta_rows as $r) { echo '<tr><td>'.esc_html($r['meta_key']).'</td><td>'.intval($r['c']).'</td></tr>'; } }
     echo '</tbody></table>';
+    echo '<script>(function(){var i=document.getElementById("adfSlugSearch");if(!i)return;function f(){var q=(i.value||"").toLowerCase();document.querySelectorAll("table.adfSlugsTable tbody tr").forEach(function(tr){var t=tr.textContent.toLowerCase();tr.style.display = q && t.indexOf(q)===-1 ? "none" : "";});} i.addEventListener("input", f);})();</script>';
     echo '</div>';
 }
+
+function adf_menu_status_badge($title, $item, $args) {
+    $o = adf_get_options();
+    if (empty($o['menu_status_indicator'])) return $title;
+    if (!is_user_logged_in() || !current_user_can('edit_pages')) return $title;
+    return $title;
+}
+add_filter('nav_menu_item_title','adf_menu_status_badge', 10, 3);
+
+function adf_resolve_page_id_from_menu_item($item) {
+    if (!is_object($item)) return 0;
+    if (!empty($item->object_id) && $item->object === 'page') {
+        return intval($item->object_id);
+    }
+    $url = !empty($item->url) ? $item->url : '';
+    if ($url) {
+        $maybe = url_to_postid($url);
+        if ($maybe) {
+            $p = get_post($maybe);
+            if ($p && $p->post_type === 'page') { return intval($maybe); }
+        }
+        $path = parse_url($url, PHP_URL_PATH);
+        if ($path) {
+            $path = trim($path, '/');
+            if ($path !== '') {
+                $page = get_page_by_path($path, OBJECT, 'page');
+                if ($page && isset($page->ID)) { return intval($page->ID); }
+            }
+        }
+    }
+    return 0;
+}
+
+function adf_menu_status_class($classes, $item, $args) {
+    $o = adf_get_options();
+    if (empty($o['menu_status_indicator'])) return $classes;
+    if (!is_user_logged_in() || !current_user_can('edit_pages')) return $classes;
+    $pid = adf_resolve_page_id_from_menu_item($item);
+    if (!$pid) return $classes;
+    $terms = wp_get_object_terms($pid, 'dev_status');
+    if (is_wp_error($terms)) return $classes;
+    $slug = (!empty($terms) && isset($terms[0]->slug)) ? $terms[0]->slug : 'empty';
+    $classes[] = 'adf-dev-status';
+    $classes[] = 'adf-dev-status-' . sanitize_html_class($slug);
+    return $classes;
+}
+add_filter('nav_menu_css_class','adf_menu_status_class', 10, 3);
+
+function adf_menu_status_css() {
+    $o = adf_get_options();
+    if (empty($o['menu_status_indicator'])) return;
+    if (!is_user_logged_in() || !current_user_can('edit_pages')) return;
+    echo '<style id="adf-menu-status-css">'
+        . '.adf-dev-status a::after{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-left:4px;vertical-align:middle;background:#bdc3c7}'
+        . '.adf-dev-status-approved a::after{background:#2ecc71}'
+        . '.adf-dev-status-pending-validation a::after{background:#f39c12}'
+        . '.adf-dev-status-in-development a::after{background:#3498db}'
+        . '.adf-dev-status-blocked a::after{background:#e74c3c}'
+        . '</style>';
+}
+add_action('wp_head','adf_menu_status_css');
+
+function adf_current_page_id() {
+    // Front-end singular page
+    if (!is_admin()) {
+        $id = get_queried_object_id();
+        $p = $id ? get_post($id) : null;
+        if ($p && $p->post_type === 'page') return intval($id);
+        return 0;
+    }
+    // Admin edit screen
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if ($screen && $screen->base === 'post' && $screen->post_type === 'page') {
+        $pid = isset($_GET['post']) ? intval($_GET['post']) : 0;
+        return $pid;
+    }
+    return 0;
+}
+
+function adf_adminbar_status($wp_admin_bar) {
+    if (!is_user_logged_in() || !current_user_can('edit_pages')) return;
+    $pid = adf_current_page_id();
+    if (!$pid) return;
+    $terms = wp_get_object_terms($pid, 'dev_status');
+    $label = (!is_wp_error($terms) && !empty($terms)) ? $terms[0]->name : '';
+    $node_id = 'adf-dev-status';
+    $title = 'Dev Status' . ($label ? ': ' . esc_html($label) : '');
+    $wp_admin_bar->add_node(['id'=>$node_id, 'title'=>$title]);
+    // Dropdown
+    $opts = get_terms(['taxonomy'=>'dev_status','hide_empty'=>false]);
+    if (!is_array($opts) || empty($opts)) return;
+    $form = '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="padding:6px 12px">';
+    $form .= '<input type="hidden" name="action" value="adf_set_dev_status">';
+    $form .= '<input type="hidden" name="post_id" value="' . intval($pid) . '">';
+    $form .= '<input type="hidden" name="_wpnonce" value="' . wp_create_nonce('adf_set_dev_status') . '">';
+    $form .= '<select name="slug" onchange="this.form.submit()">';
+    $form .= '<option value="">— Select —</option>';
+    foreach ($opts as $t) { $sel = ($label && $t->name === $label) ? ' selected' : ''; $form .= '<option value="' . esc_attr($t->slug) . '"' . $sel . '>' . esc_html($t->name) . '</option>'; }
+    $form .= '</select>';
+    $form .= '</form>';
+    $wp_admin_bar->add_node(['id'=>$node_id.'-select', 'parent'=>$node_id, 'title'=>$form]);
+}
+add_action('admin_bar_menu','adf_adminbar_status', 100);
+
+function adf_set_dev_status() {
+    if (!current_user_can('edit_pages')) return;
+    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'],'adf_set_dev_status')) return;
+    $pid = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+    $slug = isset($_POST['slug']) ? sanitize_text_field($_POST['slug']) : '';
+    if (!$pid || !$slug) return;
+    $term = get_term_by('slug', $slug, 'dev_status');
+    if ($term) { wp_set_object_terms($pid, [$term->term_id], 'dev_status', false); }
+    wp_safe_redirect(wp_get_referer() ? wp_get_referer() : admin_url());
+    exit;
+}
+add_action('admin_post_adf_set_dev_status','adf_set_dev_status');
