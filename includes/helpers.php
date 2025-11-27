@@ -13,6 +13,10 @@ function adf_get_options() {
     $o['breadcrumbs_separator'] = !empty($o['breadcrumbs_separator']) ? sanitize_text_field($o['breadcrumbs_separator']) : '›';
     $o['breadcrumbs_show_current'] = array_key_exists('breadcrumbs_show_current',$o) ? (!empty($o['breadcrumbs_show_current'])?1:0) : 1;
     $o['breadcrumbs_max_depth'] = !empty($o['breadcrumbs_max_depth']) ? intval($o['breadcrumbs_max_depth']) : 5;
+    $o['breadcrumbs_home_label'] = !empty($o['breadcrumbs_home_label']) ? sanitize_text_field($o['breadcrumbs_home_label']) : '';
+    $o['breadcrumbs_home_svg'] = !empty($o['breadcrumbs_home_svg']) ? wp_kses_post($o['breadcrumbs_home_svg']) : '';
+    $o['breadcrumbs_class'] = !empty($o['breadcrumbs_class']) ? sanitize_html_class($o['breadcrumbs_class']) : '';
+    $o['breadcrumbs_custom_css'] = !empty($o['breadcrumbs_custom_css']) ? wp_strip_all_tags($o['breadcrumbs_custom_css']) : '';
     return $o;
 }
 

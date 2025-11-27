@@ -13,6 +13,10 @@ function adf_sanitize_options($input) {
         'breadcrumbs_separator' => isset($input['breadcrumbs_separator']) ? sanitize_text_field($input['breadcrumbs_separator']) : '›',
         'breadcrumbs_show_current' => !empty($input['breadcrumbs_show_current']) ? 1 : 0,
         'breadcrumbs_max_depth' => isset($input['breadcrumbs_max_depth']) ? max(1,intval($input['breadcrumbs_max_depth'])) : 5,
+        'breadcrumbs_home_label' => isset($input['breadcrumbs_home_label']) ? sanitize_text_field($input['breadcrumbs_home_label']) : '',
+        'breadcrumbs_home_svg' => isset($input['breadcrumbs_home_svg']) ? wp_kses_post($input['breadcrumbs_home_svg']) : '',
+        'breadcrumbs_class' => isset($input['breadcrumbs_class']) ? sanitize_html_class($input['breadcrumbs_class']) : '',
+        'breadcrumbs_custom_css' => isset($input['breadcrumbs_custom_css']) ? wp_strip_all_tags($input['breadcrumbs_custom_css']) : '',
     ];
 }
 
@@ -110,12 +114,21 @@ function adf_features_html() {
         <table class="form-table">
             <tr><th>Enable Breadcrumbs</th><td><input type="checkbox" name="atomic_design_tools_settings[breadcrumbs_enable]" value="1" <?php checked(1, isset($o['breadcrumbs_enable']) ? $o['breadcrumbs_enable'] : 0); ?>></td></tr>
             <tr><th>Show Home link</th><td><input type="checkbox" name="atomic_design_tools_settings[breadcrumbs_show_home]" value="1" <?php checked(1, isset($o['breadcrumbs_show_home']) ? $o['breadcrumbs_show_home'] : 1); ?>></td></tr>
+            <tr><th>Home label</th><td><input type="text" name="atomic_design_tools_settings[breadcrumbs_home_label]" value="<?php echo esc_attr(isset($o['breadcrumbs_home_label']) ? $o['breadcrumbs_home_label'] : ''); ?>" style="width:240px" placeholder="e.g. Home"></td></tr>
+            <tr><th>Home SVG icon</th><td><textarea name="atomic_design_tools_settings[breadcrumbs_home_svg]" rows="4" style="width:100%" placeholder="Paste inline SVG"><?php echo esc_textarea(isset($o['breadcrumbs_home_svg']) ? $o['breadcrumbs_home_svg'] : ''); ?></textarea><p class="description">If set, replaces the Home label with the icon.</p></td></tr>
             <tr><th>Separator</th><td><input type="text" name="atomic_design_tools_settings[breadcrumbs_separator]" value="<?php echo esc_attr(isset($o['breadcrumbs_separator']) ? $o['breadcrumbs_separator'] : '›'); ?>" style="width:120px"></td></tr>
             <tr><th>Show current page</th><td><input type="checkbox" name="atomic_design_tools_settings[breadcrumbs_show_current]" value="1" <?php checked(1, isset($o['breadcrumbs_show_current']) ? $o['breadcrumbs_show_current'] : 1); ?>></td></tr>
             <tr><th>Max depth</th><td><input type="number" name="atomic_design_tools_settings[breadcrumbs_max_depth]" min="1" max="10" value="<?php echo esc_attr(isset($o['breadcrumbs_max_depth']) ? $o['breadcrumbs_max_depth'] : 5); ?>" style="width:80px"></td></tr>
+            <tr><th>Container class</th><td><input type="text" name="atomic_design_tools_settings[breadcrumbs_class]" value="<?php echo esc_attr(isset($o['breadcrumbs_class']) ? $o['breadcrumbs_class'] : ''); ?>" style="width:240px" placeholder="e.g. my-breadcrumbs"></td></tr>
+            <tr><th>Custom CSS</th><td><textarea name="atomic_design_tools_settings[breadcrumbs_custom_css]" rows="6" style="width:100%" placeholder=".adf-breadcrumbs { font-size:14px } .adf-bc-sep { opacity:.6 } "><?php echo esc_textarea(isset($o['breadcrumbs_custom_css']) ? $o['breadcrumbs_custom_css'] : ''); ?></textarea></td></tr>
         </table>
         <?php submit_button(); ?>
     </form>
+    <h3>Preview</h3>
+    <div style="border:1px solid #ddd;border-radius:6px;padding:12px;background:#fff;margin:10px 0">
+        <?php echo adf_breadcrumbs_build(['demo'=>true]); ?>
+        <style><?php echo esc_html(isset($o['breadcrumbs_custom_css']) ? $o['breadcrumbs_custom_css'] : ''); ?></style>
+    </div>
     <p>Use the shortcode <code>[adf_breadcrumbs]</code> or insert the "ADF Breadcrumbs" block/pattern in the editor.</p>
     </div>
 <?php }
@@ -351,33 +364,53 @@ function adf_breadcrumbs_build($args=[]) {
     $show_home = isset($o['breadcrumbs_show_home']) ? !!$o['breadcrumbs_show_home'] : true;
     $show_current = isset($o['breadcrumbs_show_current']) ? !!$o['breadcrumbs_show_current'] : true;
     $max_depth = isset($o['breadcrumbs_max_depth']) ? intval($o['breadcrumbs_max_depth']) : 5;
+    $home_label = isset($o['breadcrumbs_home_label']) && $o['breadcrumbs_home_label']!=='' ? $o['breadcrumbs_home_label'] : get_bloginfo('name');
+    $home_svg = isset($o['breadcrumbs_home_svg']) ? $o['breadcrumbs_home_svg'] : '';
+    $container_class = isset($o['breadcrumbs_class']) && $o['breadcrumbs_class']!=='' ? sanitize_html_class($o['breadcrumbs_class']) : '';
     if (isset($args['separator'])) { $sep = sanitize_text_field($args['separator']); }
     if (isset($args['show_home'])) { $show_home = !!$args['show_home']; }
     if (isset($args['show_current'])) { $show_current = !!$args['show_current']; }
     if (isset($args['max_depth'])) { $max_depth = max(1,intval($args['max_depth'])); }
+    $demo = !empty($args['demo']);
     if (!$enabled) return '';
     $links = [];
-    if ($show_home) { $links[] = ['url'=>home_url('/'),'label'=>get_bloginfo('name')]; }
-    if (is_page()) {
+    if ($show_home) {
+        $label_html = '';
+        if ($home_svg) {
+            $allowed = [ 'svg'=>['xmlns'=>true,'viewBox'=>true,'width'=>true,'height'=>true,'fill'=>true,'stroke'=>true,'stroke-width'=>true,'aria-hidden'=>true,'role'=>true], 'path'=>['d'=>true,'fill'=>true,'stroke'=>true,'stroke-width'=>true], 'g'=>[], 'title'=>[] ];
+            $label_html = wp_kses($home_svg, $allowed);
+        } else { $label_html = esc_html($home_label); }
+        $links[] = ['url'=>home_url('/'),'raw'=>$label_html];
+    }
+    if (!$demo && is_page()) {
         $id = get_queried_object_id();
         $anc = get_post_ancestors($id); $anc = array_reverse($anc);
         $count = 0;
         foreach ($anc as $aid) { $links[] = ['url'=>get_permalink($aid),'label'=>get_the_title($aid)]; $count++; if ($count >= $max_depth) break; }
         if ($show_current) { $links[] = ['url'=>'','label'=>get_the_title($id)]; }
-    } else if (is_single()) {
+    } else if (!$demo && is_single()) {
         $id = get_queried_object_id();
         $cat = get_the_category($id); $cat = is_array($cat) && !empty($cat) ? $cat[0] : null;
         if ($cat) { $links[] = ['url'=>get_category_link($cat->term_id),'label'=>$cat->name]; }
         if ($show_current) { $links[] = ['url'=>'','label'=>get_the_title($id)]; }
-    } else if (is_category()) {
+    } else if (!$demo && is_category()) {
         $term = get_queried_object(); if ($term && isset($term->name)) { $links[] = ['url'=>'','label'=>$term->name]; }
+    } else if ($demo) {
+        $links[] = ['url'=>home_url('/section'),'label'=>'Section'];
+        $links[] = ['url'=>home_url('/section/sub'),'label'=>'Subsection'];
+        if ($show_current) { $links[] = ['url'=>'','label'=>'Current page']; }
     }
-    $html = '<nav class="adf-breadcrumbs" aria-label="Breadcrumbs">';
+    $cls = 'adf-breadcrumbs' . ($container_class ? (' ' . $container_class) : '');
+    $html = '<nav class="' . esc_attr($cls) . '" aria-label="Breadcrumbs">';
     $html .= '<span class="adf-bc-inner">';
     for ($i=0; $i<count($links); $i++) {
         $l = $links[$i]; $is_last = ($i === count($links)-1);
-        if (!$is_last && !empty($l['url'])) { $html .= '<a href="'.esc_url($l['url']).'">'.esc_html($l['label']).'</a>'; }
-        else { $html .= '<span>'.esc_html($l['label']).'</span>'; }
+        if (!$is_last && !empty($l['url'])) {
+            if (!empty($l['raw'])) { $html .= '<a href="'.esc_url($l['url']).'">'.$l['raw'].'</a>'; }
+            else { $html .= '<a href="'.esc_url($l['url']).'">'.esc_html($l['label']).'</a>'; }
+        } else {
+            $html .= '<span>'.esc_html(isset($l['label']) ? $l['label'] : wp_strip_all_tags($l['raw'])).'</span>';
+        }
         if (!$is_last) { $html .= ' <span class="adf-bc-sep">'.esc_html($sep).'</span> '; }
     }
     $html .= '</span></nav>';
@@ -398,6 +431,14 @@ function adf_register_breadcrumbs_pattern() {
     ]);
 }
 add_action('init','adf_register_breadcrumbs_pattern');
+
+function adf_breadcrumbs_css() {
+    $o = adf_get_options();
+    if (empty($o['breadcrumbs_enable'])) return;
+    if (empty($o['breadcrumbs_custom_css'])) return;
+    echo '<style id="adf-breadcrumbs-css">' . esc_html($o['breadcrumbs_custom_css']) . '</style>';
+}
+add_action('wp_head','adf_breadcrumbs_css');
 
 function adf_current_page_id() {
     // Front-end singular page
